@@ -1,0 +1,59 @@
+#  Install required libraries
+!pip install fastapi uvicorn diffusers transformers accelerate python-multipart pyngrok
+
+#  SDXL + FastAPI + Ngrok backend code
+from fastapi import FastAPI, Form
+from fastapi.responses import StreamingResponse
+from diffusers import StableDiffusionXLPipeline
+from io import BytesIO
+from pyngrok import ngrok, conf
+import torch
+import uvicorn
+import nest_asyncio
+
+#  Required for running uvicorn inside Jupyter/Colab
+nest_asyncio.apply()
+
+#  Set your ngrok authtoken (get it from https://dashboard.ngrok.com/get-started/your-authtoken)
+conf.get_default().auth_token = "your auth token"  # replace this
+
+#  Start FastAPI app
+app = FastAPI()
+
+#  Load SDXL model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+pipe = StableDiffusionXLPipeline.from_pretrained(
+    "stabilityai/stable-diffusion-xl-base-1.0",
+    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+    variant="fp16" if device == "cuda" else None,
+    use_safetensors=True
+)
+pipe.to(device)
+
+@app.post("/generate")
+async def generate(prompt: str = Form(...), style: str = Form(...), resolution: str = Form(...)):
+    style_map = {
+        "realistic": "photorealistic, high resolution, National Geographic style",
+        "digital art": "digital art, ultra detailed, trending on artstation",
+        "fantasy": "fantasy, magical, mythical, highly detailed",
+        "cinematic": "cinematic lighting, dramatic, film still, depth of field",
+        "painting": "oil painting, brush strokes, canvas texture, classic art style"
+    }
+
+    full_prompt = f"{prompt}, {style_map.get(style, '')}"
+    negative_prompt = "blurry, low resolution, distorted, watermark, text"
+    width, height = map(int, resolution.split("x"))
+
+    image = pipe(prompt=full_prompt, negative_prompt=negative_prompt, width=width, height=height).images[0]
+    image_bytes = BytesIO()
+    image.save(image_bytes, format="PNG")
+    image_bytes.seek(0)
+
+    return StreamingResponse(image_bytes, media_type="image/png")
+
+# ✅ Start ngrok tunnel and uvicorn
+public_url = ngrok.connect(8000)
+print(f"🔗 Your Colab public backend URL is: {public_url}")
+
+# ✅ Run FastAPI
+uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDXL Image Generator</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+        input, select, button { padding: 10px; margin: 5px 0; width: 100%; }
+        .form-box { max-width: 400px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; }
+        img { max-width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="form-box">
+        <h2>🎨 Generate Images</h2>
+        <form action="/generate" method="post">
+            <label>Prompt:</label>
+            <input type="text" name="prompt" value="{{prompt or ''}}" required />
+
+            <label>Style:</label>
+            <select name="style">
+                {% for s in ["realistic", "digital art", "fantasy", "cinematic", "painting"] %}
+                <option value="{{s}}" {% if style == s %}selected{% endif %}>{{s}}</option>
+                {% endfor %}
+            </select>
+
+            <label>Resolution:</label>
+            <select name="resolution">
+                {% for res in ["1024x1024", "768x768", "512x512"] %}
+                <option value="{{res}}" {% if resolution == res %}selected{% endif %}>{{res}}</option>
+                {% endfor %}
+            </select>
+
+            <label>Number of Images:</label>
+            <input type="number" name="num_images" min="1" max="4" value="{{num_images or 1}}" required />
+
+            <button type="submit">Generate</button>
+        </form>
+
+        {% if result_images %}
+            <h3>Results:</h3>
+            {% for img in result_images %}
+                <img src="data:image/png;base64,{{img}}" />
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html>
